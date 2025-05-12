@@ -1,0 +1,59 @@
+'use client'
+
+import { X } from 'lucide-react'
+import { useQueryState } from 'nuqs'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+type EventOrganizationFilterProps = {
+  options: { label: string; value: string }[]
+}
+
+export const EventOrganizationFilter = ({ options }: EventOrganizationFilterProps) => {
+  const [organizationId, setOrganizationId] = useQueryState('organizationId', {
+    shallow: false,
+    scroll: true,
+  })
+
+  const selectedOrganization = options.find((org) => org.value === organizationId)
+
+  if (selectedOrganization) {
+    return (
+      <Badge variant="outline" className="flex items-center justify-between gap-4 border-dashed px-2 py-2.5">
+        <span className="truncate">{selectedOrganization.label}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setOrganizationId(null)}
+          className="hover:bg-muted ml-1 h-4 w-4 rounded-full p-1"
+          aria-label="Remove organization filter"
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </Badge>
+    )
+  }
+
+  return (
+    <Select
+      value={organizationId || 'all'}
+      onValueChange={(value: string) => {
+        setOrganizationId(value || null)
+      }}
+    >
+      <SelectTrigger className="w-[200px] border-dashed">
+        <SelectValue placeholder="Filter by organization" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">All organizations</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}

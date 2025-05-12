@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider        = "prisma-client"
+  previewFeatures = ["postgresqlExtensions", "relationJoins"]
+  output          = "../src/generated/prisma"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext]
+}
+
+// User model with roles and permissions
+model User {
+  id          String   @id @default(uuid())
+  clerkUserId String   @unique
+  email       String   @unique
+  name        String
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Relationships
+  roles       Role[]
+  recentScans RecentScan[]
+
+  @@index([name])
+}
+
+// Role model
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // "ORGANIZATION_ADMIN" or "SYSTEM_ADMIN"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  permissions Permission[] // Store permission IDs directly
+  users       User[]
+}
+
+// Permission model
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id])
+}
+
+// Organization model
+model Organization {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  events           Event[]
+  blacklist        BlacklistItem[]
+  qrCodeCategories QrCodeCategory[]
+
+  users User[]
+
+  @@index([name])
+}
+
+// Event model
+model Event {
+  id          String      @id @default(uuid())
+  name        String
+  startDate   DateTime
+  status      EventStatus @default(UPCOMING)
+  address     String
+  description String?
+  coverImage  String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relationships
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  qrCodes        QrCode[]
+
+  @@index([name])
+}
+
+// Category model
+model QrCodeCategory {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  isPublic       Boolean       @default(false)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  qrCodes        QrCode[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId])
+}
+
+// QR Code model
+model QrCode {
+  id           String       @id @default(uuid())
+  status       QrCodeStatus
+  expiresAt    DateTime
+  qrCodeBase64 String
+  securedToken String
+  name         String?
+  identifier   String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relationships
+  eventId    String
+  event      Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  categories QrCodeCategory[]
+  scans      RecentScan[]
+
+  @@index([name])
+}
+
+// Blacklist item model
+model BlacklistItem {
+  id         String   @id @default(uuid())
+  identifier String // Could be email, phone, or other identifier
+  reason     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relationships
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, identifier])
+  @@index([identifier])
+}
+
+// Recent scan model
+model RecentScan {
+  id String @id @default(uuid())
+
+  scannedAt   DateTime @default(now())
+  scannedById String
+  scannedBy   User     @relation(fields: [scannedById], references: [id], onDelete: Cascade)
+
+  // Relationships
+  qrCodeId String
+  qrCode   QrCode @relation(fields: [qrCodeId], references: [id], onDelete: Cascade)
+}
+
+// Enums
+enum EventStatus {
+  FINISHED
+  UPCOMING
+}
+
+enum QrCodeStatus {
+  ACTIVE
+  EXPIRED
+  REJECTED
+  SCANNED
+}
